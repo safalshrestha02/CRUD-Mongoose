@@ -1,40 +1,72 @@
-const { v4: uuidv4 } = require("uuid");
+// const { v4: uuidv4 } = require("uuid");
 
-let users = [];
+let Users = require("../model/user");
 
-exports.getUsers = (req, res, next) => {
+exports.getUsers = async (req, res, next) => {
+  const users = await Users.find();
+  if (!users) return res.status(204).json({ message: "no users found" });
   res.send(users);
 };
 
-exports.createUser = (req, res, next) => {
-  const body = req.body;
-  const parsedBody = body;
-  const userid = uuidv4();
-  users.push({ ...parsedBody, id: userid });
-  res.send(`user ${parsedBody.firstName} added`);
+exports.createUser = async (req, res, next) => {
+  if (!req?.body?.firstName || !req?.body?.lastName) {
+    return res.status(400).json({ message: "first and lastname requires" });
+  }
+
+  try {
+    const result = await Users.create({
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    console.log(err);
+  }
 };
 
-exports.getUser = (req, res, next) => {
-  const idToFind = req.params.id;
-  const getId = users.find((user) => user.id === idToFind);
-  res.send(getId);
+exports.getUser = async (req, res, next) => {
+  if (!req?.params?.id)
+    return res.status(400).json({ message: "id is required" });
+
+  const user = await Users.findOne({ _id: req.params.id }).exec();
+
+  if (!user) {
+    return res.status(204).json({ message: `${req.params.id} not found` });
+  }
+
+  res.send(user);
 };
 
-exports.deleteUser = (req, res, next) => {
-  const idToFind = req.params.id;
-  users = users.filter((user) => user.id !== idToFind);
-  res.send(`user with ${idToFind} deleted`);
+exports.deleteUser = async (req, res, next) => {
+  if (!req?.body?.id)
+    return res.status(400).json({ message: "id is required" });
+
+  const user = await Users.findOne({ _id: req.body.id }).exec();
+
+  if (!user) {
+    return res.status(204).json({ message: `${req.body.id} not found` });
+  }
+
+  const result = await user.deleteOne({ _id: req.body.id });
+
+  res.send(result);
 };
 
-exports.editUser = (req, res) => {
-  const idToFind = req.params.id;
-  let getId = users.find((user) => user.id === idToFind);
-  let foundId = users[getId];
+exports.editUser = async (req, res) => {
+  if (!req?.body?.id) {
+    return res.status(400).json({ message: "id is required" });
+  }
 
-  getId.firstName = req.body.firstName;
-  getId.lastName = req.body.lastName;
+  const user = await Users.findOne({ _id: req.body.id }).exec();
 
-  users[getId] = foundId;
+  if (!user) {
+    return res.status(204).json({ message: `${req.body.id} not found` });
+  }
 
-  res.send(`user with ${idToFind} edited`);
+  if (req?.body?.firstName) user.firstName = req.body.firstName;
+  if (req?.body?.lastName) user.lastName = req.body.lastName;
+
+  const result = await user.save();
+
+  res.json(result);
 };
